@@ -1,95 +1,109 @@
 App = {
   web3Provider: null,
   contracts: {},
-  account: '0x0',
+  account: "0x0",
 
-  init: async function () {
-    return await App.initWeb3();
+  init: async () => {
+    return await App.initWeb3()
   },
 
-  initWeb3: async function () {
-    if (typeof web3 !== 'undefined') {
-      App.web3Provider = web3.currentProvider;
-      web3 = new Web3(web3.currentProvider);
+  initWeb3: async () => {
+    if (typeof web3 !== "undefined") {
+      App.web3Provider = web3.currentProvider
+      web3 = new Web3(web3.currentProvider)
     } else {
-      App.web3Provider = new Web3.providers.HttpProvider('http://localhost:7545');
-      web3 = new Web3(App.web3Provider);
+      App.web3Provider = new Web3.providers.HttpProvider("http://localhost:7545")
+      web3 = new Web3(App.web3Provider)
     }
-    return App.initContract();
+    return App.initContract()
   },
 
-  initContract: function () {
-    $.getJSON("Election.json", function (election) {
-      App.contracts.Election = TruffleContract(election);
-      App.contracts.Election.setProvider(App.web3Provider);
-      return App.render();
-    });
+  initContract: () => {
+    $.getJSON("Election.json",  (election) => {
+      App.contracts.Election = TruffleContract(election)
+      App.contracts.Election.setProvider(App.web3Provider)
+      return App.render()
+    })
   },
 
-  render: function () {
+  render: () => {
     let electionInstance;
-    const loader = $("#loader");
-    const content = $("#content");
+    const loader = $("#loader")
+    const content = $("#content")
 
-    loader.show();
-    content.hide();
+    loader.show()
+    content.hide()
 
     // Load account data
-    web3.eth.getCoinbase(function (err, account) {
+    web3.eth.getCoinbase((err, account) => {
       if (err === null) {
-        App.account = account;
-        $("#account").html("Your Account: " + account);
+        App.account = account
+        $("#account").html("Connected with account: " + account)
       }
-    });
+    })
 
     // Load contract data
-    App.contracts.Election.deployed().then(function (instance) {
-      electionInstance = instance;
-      return electionInstance.candidatesCount();
-    }).then(function (candidatesCount) {
-      const candidatesResults = $("#candidates");
-      candidatesResults.empty();
+    App.contracts.Election.deployed()
+      .then((instance) => {
+        electionInstance = instance
+        return electionInstance.candidatesCount()
+      })
+      .then(async (candidatesCount) => {
+        const candidatesResults = $("#candidates")
+        candidatesResults.empty()
 
-      const candidatesSelect = $("#candidatesSelect");
-      candidatesSelect.empty();
+        const candidatesSelect = $("#candidatesSelect")
+        candidatesSelect.empty()
 
-      for (var i = 0; i < candidatesCount; i++) {
-        electionInstance.candidates(i).then(function (candidate) {
-          var id = candidate[0];
-          var name = candidate[1];
-          var voteCount = candidate[2];
+        for (let i = 0; i < candidatesCount; i++) {
+          electionInstance.candidates(i).then((candidate) => {
+            const id = candidate[0]
+            const name = candidate[1]
+            const voteCount = candidate[2]
 
-          const candidateTemplate = `<tr><th>${id}</th><td>${name}</td><td>${voteCount}</td></tr>`;
-          candidatesResults.append(candidateTemplate);
+            const candidateTemplate = `<tr><th>${id}</th><td>${name}</td><td>${voteCount}</td></tr>`
+            candidatesResults.append(candidateTemplate)
 
-          const candidateOption = "<option value='" + id + "' >" + name + "</ option>";
-          candidatesSelect.append(candidateOption);
-        });
-      }
-    }).then(function () {
-      loader.hide();
-      content.show();
-    }).catch(function (error) {
-      console.warn(error);
-    });
+            const candidateOption = `<option value="${id}">${name}</ option>`
+            candidatesSelect.append(candidateOption)
+          });
+        }
+
+        const allVotes = await electionInstance.getAllVotes()
+        const currentWinner = await electionInstance.getWinner()
+
+        $("#totalVotes").text(allVotes.toNumber())
+        $("#currentWinner").text(currentWinner)
+      })
+      .then(() => {
+        loader.hide()
+        content.show()
+      })
+      .catch((error) => {
+        console.error(error)
+      })
   },
 
-  castVote: function() {
-    const candidateId = $('#candidatesSelect').val();
-    App.contracts.Election.deployed().then(function(instance) {
-      return instance.vote(candidateId, { from: App.account });
-    }).then(function(result) {
-      // Wait for votes to update
-      $("#content").hide();
-      $("#loader").show();
-    }).catch(function(err) {
-      console.error(err);
-    });
-  }
-};
+  castVote: () => {
+    const candidateId = $("#candidatesSelect").val()
+    App.contracts.Election.deployed()
+      .then((instance) => {
+        return instance.vote(candidateId, { from: App.account })
+      })
+      .then((result) => {
+        console.log('==', result)
+        // Wait for votes to update
+        $("#content").hide();
+        $("#loader").show();
+      })
+      .catch((err) => {
+        console.error(err);
+      })
+  },
+}
 
-$(function () {
-  $(window).load(function () {
-    App.init();
-  });
-});
+$(() => {
+  $(window).load(() => {
+    App.init()
+  })
+})
